@@ -101,31 +101,94 @@ with st.sidebar:
 # Get the prediction with its intervals
 alpha = st.slider("Select alpha value for prediction intervals", min_value=0.01, max_value=0.5, value=0.1, step=0.01) # 0.1 for 90% confidence level
 
+def make_tabs(feature_pic, residual_pic, pred_act_pic, cov_pic):
+# Additional tabs for model performance
+    st.subheader("Model Insights")
+    tab1, tab2, tab3, tab4 = st.tabs(["Feature Importance", 
+                                "Histogram of Residuals", 
+                                "Predicted Vs. Actual", 
+                                "Coverage Plot"])
+    with tab1:
+        st.write("### Feature Importance")
+        st.image(feature_pic)
+        st.caption("Relative importance of features in prediction.")
+    with tab2:
+        st.write("### Histogram of Residuals")
+        st.image(residual_pic)
+        st.caption("Distribution of residuals to evaluate prediction quality.")
+    with tab3:
+        st.write("### Plot of Predicted Vs. Actual")
+        st.image(pred_act_pic)
+        st.caption("Visual comparison of predicted and actual values.")
+    with tab4:
+        st.write("### Coverage Plot")
+        st.image(cov_pic)
+        st.caption("Range of predictions with confidence intervals.")
+
+if user is None:
+    st.header("Predicting Traffic")
+    # insert prediction here
+    st.subheader("Predicted Volume: 0")
+    st.write("Predicted with", ((1 - alpha)*100), "%", "confidence interval:")
+    make_tabs('feature_imp.svg', 'residual_plot.svg', 'pred_vs_actual.svg', 'coverage.svg')
+
 if user is not None:
+    st.header("Predicting Traffic")
+    # insert prediction here
+
     # Display input summary
     st.write("### Your File")
     user = pd.read_csv(user)
     user['holiday'] = user['holiday'].replace({None: "None"})
+    st.write(user['holiday'].dtype)
 
-    # Input features (excluding traffic volume column)
-    features = traffic_df[['holiday', 'temp', 'rain_1h', 'snow_1h', 'clouds_all', 'weather_main', 'month', 'weekday', 'hour']] 
+    # Encode the inputs for model prediction
+    encode_df = traffic_df.copy()
+    encode_df = pd.concat([encode_df, user], ignore_index=True)
+    encode_df
 
-    # One-hot encoding to handle categorical variables
-    cat_var = ['holiday', 'weather_main', 'month', 'weekday', 'hour']
-    features_encoded = pd.get_dummies(features, columns = cat_var)
+    st.subheader("Predicted Volume: 0")
+    st.write("Predicted with", ((1 - alpha)*100), "%", "confidence interval:")
+    make_tabs('feature_imp.svg', 'residual_plot.svg', 'pred_vs_actual.svg', 'coverage.svg')
 
-    # Extract encoded user data
-    user_encoded_df = features_encoded.tail(len(df))
-    st.write("got to here")
+    # # Input features (excluding traffic volume column)
+    # features = user[['holiday', 'temp', 'rain_1h', 'snow_1h', 'clouds_all', 'weather_main', 'month', 'weekday', 'hour']] 
 
-    prediction, intervals = xgb_model.predict(user_encoded_df, alpha = alpha)
-    st.write("got to here 2")
-    user["Predicted value"] = prediction
-    st.write("got to here 3")
-    user["Lower value limit"] = np.maximum(0, intervals[:, 0])          # no negative values
-    user["Upper value limit"] = intervals[:, 1]
-    st.write("Prediction results with", ((1 - alpha)*100), "%", "confidence interval:")
-    st.write(user)
+    # # One-hot encoding to handle categorical variables
+    # cat_var = ['holiday', 'weather_main', 'month', 'weekday', 'hour']
+    # features_encoded = pd.get_dummies(features, columns = cat_var)
+
+    # # Extract encoded user data
+    # user_encoded_df = features_encoded.tail(len(df))
+    # st.write("got to here")
+
+    # prediction, intervals = xgb_model.predict(user_encoded_df, alpha = alpha)
+    # st.write("got to here 2")
+    # user["Predicted value"] = prediction
+    # st.write("got to here 3")
+    # user["Lower value limit"] = np.maximum(0, intervals[:, 0])          # no negative values
+    # user["Upper value limit"] = intervals[:, 1]
+    # st.write("Prediction results with", ((1 - alpha)*100), "%", "confidence interval:")
+    # st.write(user)
+
+# elif user is None:
+#     user_form = [holiday, temp, rain, snow, clouds, weather, month, day, hour]
+
+#     # Encode the inputs for model prediction
+#     encode_df = traffic_df.copy()
+
+#     # Combine the list of user data as a row to default
+#     encode_df.loc[len(encode_df)] = user_form
+
+#     # Input features (excluding traffic volume column)
+#     features = traffic_df[['holiday', 'temp', 'rain_1h', 'snow_1h', 'clouds_all', 'weather_main', 'month', 'weekday', 'hour']] 
+
+#     # One-hot encoding to handle categorical variables
+#     cat_var = ['holiday', 'weather_main', 'month', 'weekday', 'hour']
+#     features_encoded = pd.get_dummies(features, columns = cat_var)
+
+#     # Extract encoded user data
+#     user_encoded_df = encode_dummy_df.tail(1)
 
 
 
