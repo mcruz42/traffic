@@ -145,7 +145,6 @@ if user is not None:
     # Encode the inputs for model prediction
     encode_df = traffic_df.copy()
     encode_df = pd.concat([encode_df, user], ignore_index=True)
-    encode_df
 
     st.subheader("Predicted Volume: 0")
     st.write("Predicted with", ((1 - alpha)*100), "%", "confidence interval:")
