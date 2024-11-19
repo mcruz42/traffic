@@ -15,11 +15,15 @@ xgb_model = pickle.load(model_pickle)
 model_pickle.close()
 
 # Load the default dataset
-df = pd.read_csv('Traffic_Volume.csv')
-traffic_df = df.copy()
+# df = pd.read_csv('Traffic_Volume.csv')
+# traffic_df = df.copy()
+
+traffic_df = pd.read_csv('Traffic_Volume.csv')
+
 traffic_df['holiday'] = traffic_df['holiday'].replace({None: "None"})
+
 # Make sure all the date_time entries are actually in date_time format
-traffic_df['date_time'] = pd.to_datetime(df['date_time'])
+traffic_df['date_time'] = pd.to_datetime(traffic_df['date_time'])
 
 # Extract date/time to month and day of week and the hour and treat them as categorical
 # Extract month
@@ -39,7 +43,7 @@ traffic_df = traffic_df[['holiday', 'temp', 'rain_1h', 'snow_1h', 'clouds_all', 
 traffic_df.dropna(inplace = True)
 traffic_df = traffic_df.drop(columns = ['traffic_volume']) # confirmed: has all the right columns
 
-# Custom HTML for gradient title text
+# Custom HTML for gradient title text   # source: chatgpt
 st.markdown(
     """
     <h1 style='text-align: center; font-size: 2.5em;'>
@@ -52,11 +56,8 @@ st.markdown(
     unsafe_allow_html=True
 )
 st.image("traffic_image.gif", use_column_width=True)
-#TODO: message = st.info("Please choose input method")
+message = st.info("Please choose input method")
 
-# TODO: make the step funcs
-# TODO: check the mins and maxes like rain
-# Sidebar for user inputs with an expander
 with st.sidebar:
     st.image("traffic_sidebar.jpg", use_column_width = True, caption="Traffic Volume Predictor")
     st.header("Input Features")
@@ -125,86 +126,81 @@ def make_tabs(feature_pic, residual_pic, pred_act_pic, cov_pic):
         st.image(cov_pic)
         st.caption("Range of predictions with confidence intervals.")
 
-if user is None:
-    st.header("Predicting Traffic")
-    # insert prediction here
-    st.subheader("Predicted Volume: 0")
-    st.write("Predicted with", ((1 - alpha)*100), "%", "confidence interval:")
-    make_tabs('feature_imp.svg', 'residual_plot.svg', 'pred_vs_actual.svg', 'coverage.svg')
+def encode_csv(df, default):
+    # Encode the inputs for model prediction
+    encode_df = default.copy()
 
+    # Combine the csv of user data under our default
+    encode_df = pd.concat([encode_df, df], ignore_index=True)
+    # encode_df
+
+    # Create dummies for encode_df
+    encode_dummy_df = pd.get_dummies(encode_df, columns=["holiday", "weather_main", "month", "weekday", "hour"], drop_first=True)
+
+    # Extract encoded user data
+    user_encoded_df = encode_dummy_df.tail(len(df))
+
+    # Convert all booleans to ints 0/1 so xgb can handle them
+    user_encoded_df = user_encoded_df.astype({col: 'int' for col in user_encoded_df.select_dtypes('bool').columns}) # source: chatgpt
+
+    return user_encoded_df
+
+def encode_form(df, default):
+    # Encode the inputs for model prediction
+    encode_df = default.copy()
+
+    # Combine the list of user data as a row to our default
+    encode_df.loc[len(encode_df)] = df
+
+    # Create dummies for encode_df
+    encode_dummy_df = pd.get_dummies(encode_df, columns=["holiday", "weather_main", "month", "weekday", "hour"], drop_first=True)
+
+    # Extract encoded user data
+    user_encoded_df = encode_dummy_df.tail(len(df))
+
+    # Convert all booleans to ints 0/1 so xgb can handle them       # source: chatgpt
+    user_encoded_df = user_encoded_df.astype({col: 'int' for col in user_encoded_df.select_dtypes('bool').columns}) # source: chatgpt
+
+    return user_encoded_df
+
+# Option 1: User uploads a CSV
 if user is not None:
     st.header("Predicting Traffic")
-    # insert prediction here
 
-    # Display input summary
-    st.write("### Your File")
     user = pd.read_csv(user)
-    user['holiday'] = user['holiday'].replace({None: "None"})
-    st.write(user['holiday'].dtype)
+    user['hour'] = user['hour'].astype(str)
+    user['holiday'] = user['holiday'].astype(str)
+    user['holiday'] = user['holiday'].replace({"nan": "None"})
 
-    # Encode the inputs for model prediction
-    encode_df = traffic_df.copy()
-    encode_df = pd.concat([encode_df, user], ignore_index=True)
+    user_encoded_df = encode_csv(user, traffic_df)
 
-    st.subheader("Predicted Volume: 0")
-    st.write("Predicted with", ((1 - alpha)*100), "%", "confidence interval:")
-    make_tabs('feature_imp.svg', 'residual_plot.svg', 'pred_vs_actual.svg', 'coverage.svg')
+    # prediction, intervals = xgb_model.predict(user_encoded_df, alpha = alpha)   # NOTE: This "predict" is where the problem arises
 
-    # # Input features (excluding traffic volume column)
-    # features = user[['holiday', 'temp', 'rain_1h', 'snow_1h', 'clouds_all', 'weather_main', 'month', 'weekday', 'hour']] 
-
-    # # One-hot encoding to handle categorical variables
-    # cat_var = ['holiday', 'weather_main', 'month', 'weekday', 'hour']
-    # features_encoded = pd.get_dummies(features, columns = cat_var)
-
-    # # Extract encoded user data
-    # user_encoded_df = features_encoded.tail(len(df))
-    # st.write("got to here")
-
-    # prediction, intervals = xgb_model.predict(user_encoded_df, alpha = alpha)
-    # st.write("got to here 2")
     # user["Predicted value"] = prediction
-    # st.write("got to here 3")
     # user["Lower value limit"] = np.maximum(0, intervals[:, 0])          # no negative values
     # user["Upper value limit"] = intervals[:, 1]
     # st.write("Prediction results with", ((1 - alpha)*100), "%", "confidence interval:")
-    # st.write(user)
 
-# elif user is None:
-#     user_form = [holiday, temp, rain, snow, clouds, weather, month, day, hour]
+    st.subheader("Predicted Volume")
+    st.write("Predicted with", ((1 - alpha)*100), "%", "confidence")
+    st.write(user)  
+    make_tabs('feature_imp.svg', 'residual_plot.svg', 'pred_vs_actual.svg', 'coverage.svg')
 
-#     # Encode the inputs for model prediction
-#     encode_df = traffic_df.copy()
+# Option 2: User submits a form. Without clicking "submit," prediction from form default data will display.
+if user is None:
+    st.header("Predicting Traffic")
+    # insert prediction here
+    user_form = [holiday, temp, rain, snow, clouds, weather, month, day, hour]
+    user_encoded_df = encode_form(user_form, traffic_df)
 
-#     # Combine the list of user data as a row to default
-#     encode_df.loc[len(encode_df)] = user_form
+    # Drop duplicate columns based on their names # source: chatgpt
+    user_encoded_df = user_encoded_df.loc[:, ~user_encoded_df.columns.duplicated()]
 
-#     # Input features (excluding traffic volume column)
-#     features = traffic_df[['holiday', 'temp', 'rain_1h', 'snow_1h', 'clouds_all', 'weather_main', 'month', 'weekday', 'hour']] 
+    # prediction, intervals = xgb_model.predict(user_encoded_df, alpha = alpha)   # NOTE: This "predict" is where the problem arises.
+    # pred_value = prediction[0]
+    # lower_limit = intervals[0][0][0]
+    # upper_limit = intervals[0][1][0]
 
-#     # One-hot encoding to handle categorical variables
-#     cat_var = ['holiday', 'weather_main', 'month', 'weekday', 'hour']
-#     features_encoded = pd.get_dummies(features, columns = cat_var)
-
-#     # Extract encoded user data
-#     user_encoded_df = encode_dummy_df.tail(1)
-
-
-
-# # Combine the list of user data as a row to default
-
-# # Input features
-# features = user[['holiday', 'temp', 'rain_1h', 'snow_1h', 'clouds_all', 'weather_main', 'month', 'weekday', 'hour']] 
-
-# # One-hot encoding to handle categorical variables
-# cat_var = ['holiday', 'weather_main', 'month', 'weekday', 'hour']
-# features_encoded = pd.get_dummies(features, columns = cat_var)
-
-# # Using predict() with new data provided by the user
-# new_prediction = xgb_model.predict(features_encoded)
-
-# # Store the predicted species
-# user["Predicted"] = new_prediction
-
-# # Display table with prediction
-# user
+    st.subheader("Predicted Volume: 1372")     # placeholder for: st.subheader("Predicted Volume: ", pred_value)
+    st.write("Predicted with", ((1 - alpha)*100), "%", "confidence")
+    make_tabs('feature_imp.svg', 'residual_plot.svg', 'pred_vs_actual.svg', 'coverage.svg')
